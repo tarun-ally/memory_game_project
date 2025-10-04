@@ -1,126 +1,159 @@
 const gameContainer = document.getElementById("game");
 
 const COLORS = [
-  "red",
-  "blue",
-  "green",
-  "orange",
-  "purple",
-  "red",
-  "blue",
-  "green",
-  "orange",
-  "purple"
+  "red", "blue", "green", "orange", "purple",
+  "red", "blue", "green", "orange", "purple"
 ];
-// here is a helper function to shuffle an array
-// it returns the same array with values shuffled
-// it is based on an algorithm called Fisher Yates if you want ot research more
+
+// Shuffle function
 function shuffle(array) {
   let counter = array.length;
   while (counter > 0) {
-    // Pick a random index
     let index = Math.floor(Math.random() * counter);
-
-    // Decrease counter by 1
     counter--;
-
-    // And swap the last element with it
-    let temp = array[counter];
-    array[counter] = array[index];
-    array[index] = temp;
+    [array[counter], array[index]] = [array[index], array[counter]];
   }
-
   return array;
 }
 
-let shuffledColors = shuffle(COLORS);
+let shuffledColors;
+let firstCard = null;
+let secondCard = null;
+let lockBoard = false;
+let matchedPairs = 0;
+let clickCount = 0;
 
-// this function loops over the array of colors
-// it creates a new div and gives it a class with the value of the color
-// it also adds an event listener for a click for each card
+// Create card elements
 function createDivsForColors(colorArray) {
   for (let color of colorArray) {
-    // create a new div
-    const newDiv = document.createElement("div");
+    const card = document.createElement("div");
+    card.classList.add("card");
+    card.dataset.color = color;
 
-    // give it a class attribute for the value we are looping over
-    newDiv.classList.add(color);
+    const cardInner = document.createElement("div");
+    cardInner.classList.add("card-inner");
 
-    // call a function handleCardClick when a div is clicked on
-    newDiv.addEventListener("click", handleCardClick);
+    const cardFront = document.createElement("div");
+    cardFront.classList.add("card-front");
+    cardFront.style.background = color; // color side
 
-    // append the div to the element with an id of game
-    gameContainer.append(newDiv);
+    const cardBack = document.createElement("div");
+    cardBack.classList.add("card-back"); // hidden back
+
+    cardInner.appendChild(cardFront);
+    cardInner.appendChild(cardBack);
+    card.appendChild(cardInner);
+
+    card.addEventListener("click", handleCardClick);
+    gameContainer.append(card);
   }
 }
-let flipped = 0;
-let count=0;
-let previousColor;
-let previousId = null;
 
-
-
-// TODO: Implement this function!
-let clickedCard =null;
-
+// Handle card click
 function handleCardClick(e) {
-    const target = e.currentTarget;
-    // if
-    if(target == clickedCard || target.classList.contains('done')){
-        return;
-    }
-    if (count<2){
+  if (lockBoard) return;
 
-    if(!clickedCard){
+  const card = e.currentTarget;
 
-        
-        clickedCard = target;
-        target.style.background = e.currentTarget.classList.value;
-        target.classList.add('done');
-        count+=1;
-        // console.log('one click',target.style.background,e.currentTarget.classList.value,clickedCard);
-    
-    }else if(clickedCard){
-        target.style.background = e.currentTarget.classList.value;
-        target.classList.add('done');
-        // console.log('nil',target.classList.value,clickedCard.classList.value);
-        
-        count+=1;
-        if(clickedCard.classList.value ==
-        target.classList.value ){
-            target.style.background = e.currentTarget.classList.value;
-            clickedCard.style.background = 'e.currentTarget.classList.value'; 
-            clickedCard =null;
-            flipped+=1;
-            // console.log('equal',target.style.background,flipped);
-            count=0;
+  // Prevent double click on same card
+  if (card === firstCard || card.classList.contains("flipped")) return;
 
-            if(flipped ==5){
-                setTimeout(()=>{
+  // Count this click
+  clickCount++;
+  updateClickDisplay();
 
-                    alert('game over!')
-                },400);
-            }
-        }else{
-            setTimeout(()=>{
-                target.classList.remove('done');
-                if(clickedCard!=null){
-                    clickedCard.classList.remove('done');
+  // Flip card
+  card.classList.add("flipped");
 
-                    clickedCard.style.background = '';
-                }
-                target.style.background = '';
-                // console.log('not equal',clickedCard, 'name',target.classList);
-                clickedCard =null;
-                count=0;
-            },1000);
-        }
-    }
+  if (!firstCard) {
+    firstCard = card;
+    return;
+  }
+
+  secondCard = card;
+  lockBoard = true;
+
+  checkForMatch();
 }
 
+// Check if two cards match
+function checkForMatch() {
+  const isMatch = firstCard.dataset.color === secondCard.dataset.color;
+
+  if (isMatch) {
+    disableCards();
+    matchedPairs++;
+    if (matchedPairs === COLORS.length / 2) {
+      setTimeout(() => alert(`🎉 Game Over! You matched all pairs in ${clickCount} clicks.`), 400);
+    }
+  } else {
+    unflipCards();
+  }
 }
 
-// when the DOM loads
-createDivsForColors(shuffledColors);
+// If cards match, keep them revealed
+function disableCards() {
+  firstCard.classList.add("done");
+  secondCard.classList.add("done");
+  resetBoard();
+}
 
+// If not a match, flip them back
+function unflipCards() {
+  setTimeout(() => {
+    firstCard.classList.remove("flipped");
+    secondCard.classList.remove("flipped");
+    resetBoard();
+  }, 1000);
+}
 
+// Reset temporary variables
+function resetBoard() {
+  [firstCard, secondCard, lockBoard] = [null, null, false];
+}
+
+// Show clicks live
+function updateClickDisplay() {
+  let counterEl = document.getElementById("click-counter");
+  if (!counterEl) {
+    counterEl = document.createElement("p");
+    counterEl.id = "click-counter";
+    counterEl.style.fontSize = "18px";
+    counterEl.style.fontWeight = "bold";
+    counterEl.style.margin = "10px 0";
+    document.body.insertBefore(counterEl, gameContainer);
+  }
+  counterEl.textContent = `Clicks: ${clickCount}`;
+}
+
+// Restart game
+function restartGame() {
+  gameContainer.innerHTML = ""; // clear old cards
+  shuffledColors = shuffle([...COLORS]); // reshuffle
+  matchedPairs = 0;
+  clickCount = 0;
+  updateClickDisplay();
+  resetBoard();
+  createDivsForColors(shuffledColors);
+}
+
+// Create restart button
+function createRestartButton() {
+  let restartBtn = document.getElementById("restart-btn");
+  if (!restartBtn) {
+    restartBtn = document.createElement("button");
+    restartBtn.id = "restart-btn";
+    restartBtn.textContent = "🔄 Restart Game";
+    document.body.insertBefore(restartBtn, gameContainer);
+    restartBtn.addEventListener("click", restartGame);
+  }
+}
+
+// Start game
+function initGame() {
+  shuffledColors = shuffle([...COLORS]);
+  createRestartButton();
+  restartGame();
+}
+
+initGame();
